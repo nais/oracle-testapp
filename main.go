@@ -9,6 +9,7 @@ import (
 	"log"
 	"net/http"
 	"os"
+	"strings"
 	"time"
 
 	_ "github.com/sijms/go-ora/v2"
@@ -53,7 +54,7 @@ func main() {
 }
 
 func connectDB() (*sql.DB, error) {
-	// ORACLE_URL format: jdbc:oracle:thin:@{host}:1521/{database}
+	// ORACLE_URL format: jdbc:oracle:thin:@{host}:{port}/{database}
 	oracleURL := os.Getenv("ORACLE_URL")
 	username := os.Getenv("ORACLE_USERNAME")
 	password := os.Getenv("ORACLE_PASSWORD")
@@ -62,18 +63,24 @@ func connectDB() (*sql.DB, error) {
 		return nil, fmt.Errorf("ORACLE_URL, ORACLE_USERNAME and ORACLE_PASSWORD must be set")
 	}
 
-	// Parse jdbc:oracle:thin:@{host}:1521/{database}
-	var hostPortDb string
-	_, err := fmt.Sscanf(oracleURL, "jdbc:oracle:thin:@%s", &hostPortDb)
-	if err != nil {
-		return nil, fmt.Errorf("failed to parse ORACLE_URL: %w", err)
+	// Parse jdbc:oracle:thin:@{host}:{port}/{database}
+	prefix := "jdbc:oracle:thin:@"
+	if !strings.HasPrefix(oracleURL, prefix) {
+		return nil, fmt.Errorf("ORACLE_URL must start with %s, got %q", prefix, oracleURL)
 	}
 
-	// hostPortDb is now "{host}:1521/{database}"
-	var host, port, database string
-	n, err := fmt.Sscanf(hostPortDb, "%[^:]:%[^/]/%s", &host, &port, &database)
-	if err != nil || n != 3 {
-		return nil, fmt.Errorf("failed to parse host:port/database from ORACLE_URL: got %q", oracleURL)
+	hostPortDb := strings.TrimPrefix(oracleURL, prefix)
+
+	// Split into host:port and database
+	hostPort, database, found := strings.Cut(hostPortDb, "/")
+	if !found {
+		return nil, fmt.Errorf("failed to parse database from ORACLE_URL: %q", oracleURL)
+	}
+
+	// Split host and port
+	host, port, found := strings.Cut(hostPort, ":")
+	if !found {
+		return nil, fmt.Errorf("failed to parse host:port from ORACLE_URL: %q", oracleURL)
 	}
 
 	connStr := fmt.Sprintf("oracle://%s:%s@%s:%s/%s", username, password, host, port, database)
