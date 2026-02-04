@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"log"
 	"net/http"
+	"net/url"
 	"os"
 	"strings"
 	"time"
@@ -83,7 +84,7 @@ func connectDB() (*sql.DB, error) {
 		return nil, fmt.Errorf("failed to parse host:port from ORACLE_URL: %q", oracleURL)
 	}
 
-	connStr := fmt.Sprintf("oracle://%s:%s@%s:%s/%s", username, password, host, port, database)
+	connStr := fmt.Sprintf("oracle://%s:%s@%s:%s/%s", url.QueryEscape(username), url.QueryEscape(password), host, port, database)
 
 	db, err := sql.Open("oracle", connStr)
 	if err != nil {
