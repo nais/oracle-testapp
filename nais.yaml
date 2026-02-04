@@ -1,0 +1,29 @@
+apiVersion: nais.io/v1alpha1
+kind: Application
+metadata:
+  name: oracleverk-testapp
+  namespace: nais
+  labels:
+    team: nais
+spec:
+  image: {{image}}
+  port: 8080
+  replicas:
+    min: 1
+    max: 1
+  resources:
+    requests:
+      cpu: 50m
+      memory: 64Mi
+    limits:
+      memory: 128Mi
+  liveness:
+    path: /api/health
+    initialDelay: 5
+  readiness:
+    path: /api/health
+    initialDelay: 5
+  ingresses:
+    - https://oracleverk-testapp.intern.dev.nav.no
+  envFrom:
+    - secret: oracleverk-testapp-oracle
