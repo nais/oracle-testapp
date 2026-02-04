@@ -54,8 +54,39 @@ func main() {
 	}
 }
 
+// parseOracleURL converts a JDBC Oracle URL to a go-ora connection string.
+// Input format: jdbc:oracle:thin:@{host}:{port}/{database}
+// Output format: oracle://{username}:{password}@{host}:{port}/{database}
+func parseOracleURL(oracleURL, username, password string) (string, error) {
+	prefix := "jdbc:oracle:thin:@"
+	if !strings.HasPrefix(oracleURL, prefix) {
+		return "", fmt.Errorf("ORACLE_URL must start with %s, got %q", prefix, oracleURL)
+	}
+
+	hostPortDb := strings.TrimPrefix(oracleURL, prefix)
+
+	// Split into host:port and database
+	hostPort, database, found := strings.Cut(hostPortDb, "/")
+	if !found {
+		return "", fmt.Errorf("failed to parse database from ORACLE_URL: %q", oracleURL)
+	}
+
+	// Split host and port
+	host, port, found := strings.Cut(hostPort, ":")
+	if !found {
+		return "", fmt.Errorf("failed to parse host:port from ORACLE_URL: %q", oracleURL)
+	}
+
+	connURL := &url.URL{
+		Scheme: "oracle",
+		User:   url.UserPassword(username, password),
+		Host:   fmt.Sprintf("%s:%s", host, port),
+		Path:   "/" + database,
+	}
+	return connURL.String(), nil
+}
+
 func connectDB() (*sql.DB, error) {
-	// ORACLE_URL format: jdbc:oracle:thin:@{host}:{port}/{database}
 	oracleURL := os.Getenv("ORACLE_URL")
 	username := os.Getenv("ORACLE_USERNAME")
 	password := os.Getenv("ORACLE_PASSWORD")
@@ -64,27 +95,10 @@ func connectDB() (*sql.DB, error) {
 		return nil, fmt.Errorf("ORACLE_URL, ORACLE_USERNAME and ORACLE_PASSWORD must be set")
 	}
 
-	// Parse jdbc:oracle:thin:@{host}:{port}/{database}
-	prefix := "jdbc:oracle:thin:@"
-	if !strings.HasPrefix(oracleURL, prefix) {
-		return nil, fmt.Errorf("ORACLE_URL must start with %s, got %q", prefix, oracleURL)
+	connStr, err := parseOracleURL(oracleURL, username, password)
+	if err != nil {
+		return nil, err
 	}
-
-	hostPortDb := strings.TrimPrefix(oracleURL, prefix)
-
-	// Split into host:port and database
-	hostPort, database, found := strings.Cut(hostPortDb, "/")
-	if !found {
-		return nil, fmt.Errorf("failed to parse database from ORACLE_URL: %q", oracleURL)
-	}
-
-	// Split host and port
-	host, port, found := strings.Cut(hostPort, ":")
-	if !found {
-		return nil, fmt.Errorf("failed to parse host:port from ORACLE_URL: %q", oracleURL)
-	}
-
-	connStr := fmt.Sprintf("oracle://%s:%s@%s:%s/%s", url.QueryEscape(username), url.QueryEscape(password), host, port, database)
 
 	db, err := sql.Open("oracle", connStr)
 	if err != nil {

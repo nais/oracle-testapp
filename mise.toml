@@ -9,6 +9,10 @@ run = "make build"
 description = "Build and run the application"
 run = "make run"
 
+[tasks.test]
+description = "Run tests"
+run = "make test"
+
 [tasks.clean]
 description = "Remove build artifacts"
 run = "make clean"
